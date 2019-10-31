@@ -18,7 +18,6 @@
             var ws = new WebSocket(host);
             ws.onmessage = function (event) {
                 var value = JSON.parse(event.data);
-                console.log(event);
                 $('#teste').html(value);
             };
         })
