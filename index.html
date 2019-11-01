@@ -13,24 +13,89 @@
     <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
 
     <script>
+        // $(document).ready(){
+        //     
+        // }
         $(function () {
             var host = location.origin.replace(/^http/, 'ws')
             var ws = new WebSocket(host);
+
             ws.onmessage = function (event) {
                 var value = JSON.parse(event.data);
-                $('#teste').html(value);
+                var dDate = new Date().toLocaleString();
+                var db = openDatabase('raceDB', '1.0', 'raceDB', 2 * 1024 * 1024);
+
+                db.transaction(function (tx) {
+                    if (value.toString().trim() == 'Azul') {
+                        tx.executeSql("UPDATE Competidores SET data_ultima_volta = '" + dDate + "' WHERE id = '" + $('#hdnCompetidor1').val() + "'");
+                    }
+                    else {
+                        tx.executeSql("UPDATE Competidores SET data_ultima_volta = '" + dDate + "' WHERE id = '" + $('#hdnCompetidor2').val() + "'");
+                    }
+                });
+                window.setTimeout(()=>{
+                    atualizarDashboard();
+                }, 1500);
             };
         })
+
+        function atualizarDashboard(){
+
+        }
+
+        function cadastrar() {
+            var db = openDatabase('raceDB', '1.0', 'raceDB', 2 * 1024 * 1024);
+            db.transaction(function (tx) {
+                $('#hdnCompetidor1').val(uuid());
+                $('#hdnCompetidor2').val(uuid());
+                tx.executeSql('CREATE TABLE IF NOT EXISTS Competidores (id unique, nome, data_ultima_volta, cor, tempo)');
+                tx.executeSql("INSERT INTO Competidores (id, nome, data_ultima_volta, cor, tempo) VALUES ('" + $('#hdnCompetidor1').val() + "','" + $('#txtCompetidor1').val() + "', '','azul','')");
+                tx.executeSql("INSERT INTO Competidores (id, nome, data_ultima_volta, cor, tempo) VALUES ('" + $('#hdnCompetidor2').val() + "','" + $('#txtCompetidor2').val() + "', '','verde','')");
+            });
+
+            $('#divCadastro').css('display', 'none');
+        }
+        function uuid() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
     </script>
 </head>
 
 <body>
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item active" aria-current="page">Home</li>
-        </ol>
-    </nav>
-    <div id="teste">teste</div>
+    <div id="teste"></div>
+    <div id="divCadastro" class="container-fluid" style="display:block;">
+        <div class="row" style="margin-top: 10%;">
+            <div class="col-md-2"></div>
+            <div class="col-md-8">
+                <form>
+                    <div class="form-group">
+                        <input type="email" class="form-control" id="txtCompetidor1" aria-describedby="inputHelp"
+                            placeholder="Informe o nome do competidor 1">
+                        <small id="inputHelp" class="form-text text-muted">Obs: Carrinho Azul</small>
+                        <input id="hdnCompetidor1" type="hidden">
+                    </div>
+                    <div class="form-group">
+                        <input type="email" class="form-control" id="txtCompetidor2" aria-describedby="inputHelp2"
+                            placeholder="Informe o nome do competidor 2">
+                        <small id="inputHelp" class="form-text text-muted">Obs: Carrinho Verde</small>
+                        <input id="hdnCompetidor2" type="hidden">
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+        <div class="row">
+            <div class="col-md-2"></div>
+            <div class="col-md-8">
+                <button type="button" class="btn btn-primary" style="width: 100%"
+                    onclick="cadastrar()">Confirmar</button>
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+    </div>
 </body>
 
 </html>
