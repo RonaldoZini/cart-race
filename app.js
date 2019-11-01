@@ -14,8 +14,6 @@ var wss = new WebSocketServer({server: server})
   const parser = port.pipe(new Readline({ delimiter: '\n' }));
   
   parser.on('data', data => {
-    console.log(data);
-
     var value = ""
     for (p in data) value += data[p];
     wss.clients.forEach(function each(ws) {
