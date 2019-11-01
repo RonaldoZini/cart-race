@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="uft-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <title>Cart Race</title>
+    <link rel="stylesheet" href="node_modules/jquery/dist/jquery.min.js">
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/index.css">
+    <script src="node_modules/jquery/dist/jquery.min.js"></script>
+    <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+
+    <script>
+        $(function () {
+            var host = location.origin.replace(/^http/, 'ws')
+            var ws = new WebSocket(host);
+            ws.onmessage = function (event) {
+                var value = JSON.parse(event.data);
+                $('#teste').html(value);
+            };
+        })
+    </script>
+</head>
+
+<body>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item active" aria-current="page">Home</li>
+        </ol>
+    </nav>
+    <div id="teste">teste</div>
+</body>
+
+</html>
