@@ -13,24 +13,64 @@
     <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
 
     <script>
+        // $(document).ready(){
+        //     
+        // }
         $(function () {
             var host = location.origin.replace(/^http/, 'ws')
             var ws = new WebSocket(host);
+
+
+
             ws.onmessage = function (event) {
                 var value = JSON.parse(event.data);
                 $('#teste').html(value);
+
+
             };
         })
+
+        function cadastrar() {
+            var db = openDatabase('raceDB', '1.0', 'raceDB', 2 * 1024 * 1024);
+            db.transaction(function (tx) {
+                tx.executeSql('CREATE TABLE IF NOT EXISTS Competidores (id unique, nome, data_ultima_volta, cor, tempo)');
+                tx.executeSql("INSERT INTO Competidores (nome, data_ultima_volta, cor, tempo) VALUES ('" + $('#txtCompetidor1').val() + "', '','azul','')");
+                tx.executeSql("INSERT INTO Competidores (nome, data_ultima_volta, cor, tempo) VALUES ('" + $('#txtCompetidor2').val() + "', '','verde','')");
+            });
+
+            $('#divCadastro').css('display','none');
+        }
     </script>
 </head>
 
 <body>
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item active" aria-current="page">Home</li>
-        </ol>
-    </nav>
-    <div id="teste">teste</div>
+    <div id="divCadastro" class="container-fluid" style="display:block;">
+        <div class="row" style="margin-top: 10%;">
+            <div class="col-md-2"></div>
+            <div class="col-md-8">
+                <form>
+                    <div class="form-group">
+                        <input type="email" class="form-control" id="txtCompetidor1" aria-describedby="inputHelp"
+                            placeholder="Informe o nome do competidor 1">
+                        <small id="inputHelp" class="form-text text-muted">Obs: Carrinho Azul</small>
+                    </div>
+                    <div class="form-group">
+                        <input type="email" class="form-control" id="txtCompetidor2" aria-describedby="inputHelp2"
+                            placeholder="Informe o nome do competidor 2">
+                        <small id="inputHelp" class="form-text text-muted">Obs: Carrinho Verde</small>
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+        <div class="row">
+            <div class="col-md-2"></div>
+            <div class="col-md-8">
+                <button type="button" class="btn btn-primary" style="width: 100%" onclick="cadastrar()">Confirmar</button>
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+    </div>
 </body>
 
 </html>
