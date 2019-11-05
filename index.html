@@ -13,49 +13,115 @@
     <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
 
     <script>
-        // $(document).ready(){
-        //     
-        // }
+
+        var nroVoltasCompetidor1 = 0;
+        var nroVoltasCompetidor2 = 0;
+        var autorizaVoltaCompetidor1 = true;
+        var autorizaVoltaCompetidor2 = true;
+        var finalizou = false;
+
         $(function () {
             var host = location.origin.replace(/^http/, 'ws')
             var ws = new WebSocket(host);
 
             ws.onmessage = function (event) {
                 var value = JSON.parse(event.data);
-                var dDate = new Date().toLocaleString();
                 var db = openDatabase('raceDB', '1.0', 'raceDB', 2 * 1024 * 1024);
 
                 db.transaction(function (tx) {
                     if (value.toString().trim() == 'Azul') {
-                        tx.executeSql("UPDATE Competidores SET data_ultima_volta = '" + dDate + "' WHERE id = '" + $('#hdnCompetidor1').val() + "'");
+                        if(autorizaVoltaCompetidor1 == true){
+                            atualizarDashboard(false, 1);
+                            autorizaVoltaCompetidor1 = false;
+                        }
                     }
                     else {
-                        tx.executeSql("UPDATE Competidores SET data_ultima_volta = '" + dDate + "' WHERE id = '" + $('#hdnCompetidor2').val() + "'");
+                        if(autorizaVoltaCompetidor2 == true){
+                            atualizarDashboard(false, 2);
+                            autorizaVoltaCompetidor2 = false;
+                        }
                     }
                 });
-                window.setTimeout(() => {
-                    atualizarDashboard();
-                }, 1500);
             };
         })
 
-        function atualizarDashboard() {
+        function atualizarDashboard(cadastrar, competidor) {
+                var db = openDatabase('raceDB', '1.0', 'raceDB', 2 * 1024 * 1024);
+                db.transaction(function (tx) {
+                    if (cadastrar) {
+                        tx.executeSql("SELECT Nome, Cor FROM Competidores WHERE id IN ('" + $('#hdnCompetidor1_id').val() + "','" + $('#hdnCompetidor2_id').val() + "')", [], function (tx, results) {
+                            for (var i = 0; i < 2; i++) {
+                                if (results.rows[i].cor.toString() == 'azul') {
+                                    $('#strNomeCompetidor1').html(results.rows[i].nome);
+                                } else {
+                                    $('#strNomeCompetidor2').html(results.rows[i].nome);
+                                }
+                            };
+                        }, null);
 
-        }
+                    }else{
+                        tx.executeSql("SELECT qtd_voltas, data_ultima_volta, melhor_volta FROM Competidores WHERE id = '" + $('#hdnCompetidor' + competidor + '_id').val() + "'", [], function (tx, results) {
+                            var dDate = new Date();
+                            var qtd_voltas = results.rows[0].qtd_voltas += 1;
+                            var melhor_volta = results.rows[0].melhor_volta;
+                            var intervalo;
+                            var data_ultima_volta = results.rows[0].data_ultima_volta;
+
+                            if (data_ultima_volta != ''){
+                                intervalo = dDate.getTime() - new Date(data_ultima_volta).getTime();
+                            }
+                            var seconds = Math.floor((intervalo / 1000) % 60);
+                            var minutes = Math.floor((intervalo / (1000 * 60)) % 60);
+                            intervalo = (minutes < 10 ? '0' + minutes : minutes) + ':' + (seconds < 10 ? '0' + seconds : seconds) ;
+
+                            if (melhor_volta == '00:00' || parseInt(intervalo.replace(':')) < parseInt(melhor_volta.replace(':'))) {
+                                melhor_volta = intervalo;
+                            }
+                            
+                            $('#spnMelhorVolta' + competidor).html(melhor_volta);
+                            $('#strNroVoltasCompetidor'+ competidor).html(qtd_voltas + '/3');
+
+                            data_ultima_volta = dDate.toLocaleString();
+
+                            tx.executeSql("UPDATE Competidores SET data_ultima_volta = '" + data_ultima_volta + "', melhor_volta = '" + melhor_volta + "', qtd_voltas = " + qtd_voltas + " WHERE id = '" + $('#hdnCompetidor' + competidor + '_id').val() + "'");
+
+                            autorizaVoltaCompetidor1 = false;
+                        }, null);
+                    }
+                });
+
+                window.setTimeout(()=>{
+                    autorizaVoltaCompetidor1 = true;
+                    autorizaVoltaCompetidor2 = true;
+                }, 5000);
+            }
 
         function cadastrar() {
             var db = openDatabase('raceDB', '1.0', 'raceDB', 2 * 1024 * 1024);
             db.transaction(function (tx) {
-                $('#hdnCompetidor1').val(uuid());
-                $('#hdnCompetidor2').val(uuid());
-                tx.executeSql('CREATE TABLE IF NOT EXISTS Competidores (id unique, nome, data_ultima_volta, cor, tempo)');
-                tx.executeSql("INSERT INTO Competidores (id, nome, data_ultima_volta, cor, tempo) VALUES ('" + $('#hdnCompetidor1').val() + "','" + $('#txtCompetidor1').val() + "', '','azul','')");
-                tx.executeSql("INSERT INTO Competidores (id, nome, data_ultima_volta, cor, tempo) VALUES ('" + $('#hdnCompetidor2').val() + "','" + $('#txtCompetidor2').val() + "', '','verde','')");
+                var dDate = new Date();
+                $('#hdnCompetidor1_id').val(uuid());
+                $('#hdnCompetidor2_id').val(uuid());
+                tx.executeSql('CREATE TABLE IF NOT EXISTS Competidores (id unique, nome, qtd_voltas, data_ultima_volta, cor, melhor_volta)');
+                tx.executeSql("INSERT INTO Competidores (id, nome, qtd_voltas, data_ultima_volta, cor, melhor_volta) VALUES ('" + $('#hdnCompetidor1_id').val() + "','" + $('#txtCompetidor1').val() + "'," + nroVoltasCompetidor1 + ", '" + dDate.toLocaleString() + "','azul','00:00')");
+                tx.executeSql("INSERT INTO Competidores (id, nome, qtd_voltas, data_ultima_volta, cor, melhor_volta) VALUES ('" + $('#hdnCompetidor2_id').val() + "','" + $('#txtCompetidor2').val() + "'," + nroVoltasCompetidor2 + ", '" + dDate.toLocaleString() + "','verde','00:00')");
             });
 
             $('#divCadastro').css('display', 'none');
             $('#divDashboard').css('display', 'block');
+
+            atualizarDashboard(true);
+
+            window.setTimeout(function() {
+                if(finalizar == true)
+                    finalizar();
+            }, 180000);
         }
+
+        function finalizar(){
+
+        }
+
         function uuid() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
                 var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
@@ -75,13 +141,13 @@
                         <input type="email" class="form-control" id="txtCompetidor1" aria-describedby="inputHelp"
                             placeholder="Informe o nome do competidor 1">
                         <small id="inputHelp" class="form-text text-muted">Obs: Carrinho Azul</small>
-                        <input id="hdnCompetidor1" type="hidden">
+                        <input id="hdnCompetidor1_id" type="hidden">
                     </div>
                     <div class="form-group">
                         <input type="email" class="form-control" id="txtCompetidor2" aria-describedby="inputHelp2"
                             placeholder="Informe o nome do competidor 2">
                         <small id="inputHelp" class="form-text text-muted">Obs: Carrinho Verde</small>
-                        <input id="hdnCompetidor2" type="hidden">
+                        <input id="hdnCompetidor2_id" type="hidden">
                     </div>
                 </form>
             </div>
@@ -114,13 +180,13 @@
                                 <div class="col">
                                     <div class="card">
                                         <div class="card-header">
-                                            <strong>Daniel Sandrin</strong>
+                                            <strong id="strNomeCompetidor1"></strong>
                                         </div>
                                         <div class="card-body">
                                             <div class="info">
-                                                <p><strong>Volta Atual:</strong> 00:13</p>
-                                                <p><strong>Carrinho:</strong> Vermelho</p>
-                                                <p><strong>Volta mais rápida:</strong> 00:12</p>
+                                                <p><strong>Carrinho:</strong> Azul</p>
+                                                <p><strong id="strNroVoltasCompetidor1">0/3</strong> Voltas</p>
+                                                <p><strong>Volta mais rápida:&nbsp;</strong><span id="spnMelhorVolta1">00:00</span></p>
                                                 <div class="NVolta" style="text-align: end;">
                                                     <p><strong>Nº Volta: </strong>1</p>
                                                 </div>
@@ -131,13 +197,13 @@
                                 <div class="col">
                                     <div class="card">
                                         <div class="card-header">
-                                            <strong>Ronaldo Zini</strong>
+                                            <strong id="strNomeCompetidor2"></strong>
                                         </div>
                                         <div class="card-body">
                                             <div class="info">
-                                                <p><strong>Volta Atual:</strong> 15:00</p>
-                                                <p><strong>Carrinho:</strong> Azul</p>
-                                                <p><strong>Volta mais rápida:</strong> 15:00</p>
+                                                <p><strong>Carrinho:</strong> Verde</p>
+                                                <p><strong id="strNroVoltasCompetidor2">0/3</strong> Voltas</p>
+                                                <p><strong>Volta mais rápida:&nbsp;</strong><span id="spnMelhorVolta2">00:00</span></p>
                                                 <div class="NVolta" style="text-align: end;">
                                                     <p><strong>Nº Volta: </strong>1</p>
                                                 </div>
