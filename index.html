@@ -27,8 +27,9 @@
             ws.onmessage = function (event) {
                 var value = JSON.parse(event.data);
                 var db = openDatabase('raceDB', '1.0', 'raceDB', 2 * 1024 * 1024);
-
+                
                 db.transaction(function (tx) {
+                    console.log(value.toString());
                     if (value.toString().trim() == 'Azul') {
                         if(autorizaVoltaCompetidor1 == true){
                             atualizarDashboard(false, 1);
@@ -79,24 +80,46 @@
                             }
                             
                             $('#spnMelhorVolta' + competidor).html(melhor_volta);
-                            $('#strNroVoltasCompetidor'+ competidor).html(qtd_voltas + '/3');
+                            $('#spnNroVoltasCompetidor'+ competidor).html(qtd_voltas + '/3');
 
                             data_ultima_volta = dDate.toLocaleString();
 
                             tx.executeSql("UPDATE Competidores SET data_ultima_volta = '" + data_ultima_volta + "', melhor_volta = '" + melhor_volta + "', qtd_voltas = " + qtd_voltas + " WHERE id = '" + $('#hdnCompetidor' + competidor + '_id').val() + "'");
 
-                            autorizaVoltaCompetidor1 = false;
+                            if (competidor == 1)
+                                autorizaVoltaCompetidor1 = false;
+                            else if (competidor == 2)
+                                autorizaVoltaCompetidor2 = false;
+
+                            if (qtd_voltas >= 3) {
+                                $('#imgTrofeu' + competidor).css('display', 'block');
+                                finalizar();
+                            } else {
+                                window.setTimeout(() => {
+                                    if (finalizou == false)
+                                        if (competidor == 1)
+                                            autorizaVoltaCompetidor1 = true;
+                                        else if (competidor == 2)
+                                            autorizaVoltaCompetidor2 = true;
+                                }, 5000);
+                            }
                         }, null);
                     }
                 });
 
                 window.setTimeout(()=>{
-                    autorizaVoltaCompetidor1 = true;
-                    autorizaVoltaCompetidor2 = true;
+                    if (finalizou == false)
+                        autorizaVoltaCompetidor1 = true;
+                        autorizaVoltaCompetidor2 = true;
                 }, 5000);
             }
 
         function cadastrar() {
+            if($('#txtCompetidor1').val() == '')
+                return $('#txtCompetidor1').focus();
+            if($('#txtCompetidor2').val() == '')
+                return $('#txtCompetidor2').focus();
+
             var db = openDatabase('raceDB', '1.0', 'raceDB', 2 * 1024 * 1024);
             db.transaction(function (tx) {
                 var dDate = new Date();
@@ -104,22 +127,60 @@
                 $('#hdnCompetidor2_id').val(uuid());
                 tx.executeSql('CREATE TABLE IF NOT EXISTS Competidores (id unique, nome, qtd_voltas, data_ultima_volta, cor, melhor_volta)');
                 tx.executeSql("INSERT INTO Competidores (id, nome, qtd_voltas, data_ultima_volta, cor, melhor_volta) VALUES ('" + $('#hdnCompetidor1_id').val() + "','" + $('#txtCompetidor1').val() + "'," + nroVoltasCompetidor1 + ", '" + dDate.toLocaleString() + "','azul','00:00')");
-                tx.executeSql("INSERT INTO Competidores (id, nome, qtd_voltas, data_ultima_volta, cor, melhor_volta) VALUES ('" + $('#hdnCompetidor2_id').val() + "','" + $('#txtCompetidor2').val() + "'," + nroVoltasCompetidor2 + ", '" + dDate.toLocaleString() + "','verde','00:00')");
+                tx.executeSql("INSERT INTO Competidores (id, nome, qtd_voltas, data_ultima_volta, cor, melhor_volta) VALUES ('" + $('#hdnCompetidor2_id').val() + "','" + $('#txtCompetidor2').val() + "'," + nroVoltasCompetidor2 + ", '" + dDate.toLocaleString() + "','amarelo','00:00')");
             });
 
             $('#divCadastro').css('display', 'none');
             $('#divDashboard').css('display', 'block');
+            $('#imgTrofeu1').css('display','none');
+            $('#imgTrofeu2').css('display','none');
 
             atualizarDashboard(true);
+            finalizar(true);
 
             window.setTimeout(function() {
-                if(finalizar == true)
-                    finalizar();
+                finalizar();
             }, 180000);
         }
 
-        function finalizar(){
+        function finalizar(iniciar = false){
+            var db = openDatabase('raceDB', '1.0', 'raceDB', 2 * 1024 * 1024);
+            db.transaction(function (tx) {
+                var descricao;
+                var dDate = new Date().toLocaleDateString();
 
+                tx.executeSql("SELECT nome, melhor_volta FROM Competidores WHERE melhor_volta <> '00:00' ORDER BY melhor_volta ASC LIMIT 3", [], function (tx, results) {
+                    for (var i = 0; i < results.rows.length; i++) {
+                        if(results.rows[i] != undefined && results.rows[i].melhor_volta != '')
+                            descricao = results.rows[i].nome + ' - Tempo da volta: ' + results.rows[i].melhor_volta;
+                            $('#spnTop' + (i + 1) + 'Inventum').html(descricao);
+                    }
+                }, null);
+
+                tx.executeSql("SELECT nome, melhor_volta FROM Competidores WHERE  melhor_volta <> '00:00' AND data_ultima_volta between '" + dDate + " 00:00:00' and '" + dDate + " 23:59:59' ORDER BY melhor_volta ASC LIMIT 3", [], function (tx, results) {
+                    for (var i = 0; i < results.rows.length; i++) {
+                        if(results.rows[i] != undefined && results.rows[i].melhor_volta != '')
+                            descricao = results.rows[i].nome + ' - Tempo da volta: ' + results.rows[i].melhor_volta;
+                            $('#spnTop' + (i + 1)).html(descricao);
+                    }
+                }, null);
+            });
+            if (iniciar == false)
+                finalizou = true;
+        }
+
+        function iniciarNovaPartida(){
+            $('#divCadastro').css('display', 'block');
+            $('#divDashboard').css('display', 'none');
+            $('#txtCompetidor1').val('');
+            $('#txtCompetidor2').val('');
+            $('#spnNroVoltasCompetidor1').html('0/3');
+            $('#spnNroVoltasCompetidor2').html('0/3');
+            $('#spnMelhorVolta1').html('00:00');
+            $('#spnMelhorVolta2').html('00:00');
+            finalizou = false;
+            autorizaVoltaCompetidor1 = true;
+            autorizaVoltaCompetidor2 = true;
         }
 
         function uuid() {
@@ -146,7 +207,7 @@
                     <div class="form-group">
                         <input type="email" class="form-control" id="txtCompetidor2" aria-describedby="inputHelp2"
                             placeholder="Informe o nome do competidor 2">
-                        <small id="inputHelp" class="form-text text-muted">Obs: Carrinho Verde</small>
+                        <small id="inputHelp" class="form-text text-muted">Obs: Carrinho Amarelo</small>
                         <input id="hdnCompetidor2_id" type="hidden">
                     </div>
                 </form>
@@ -168,7 +229,6 @@
                 <div class="topo">
                     <img src="img/Bandeira.JPG" class="img-fluid" style="height: 4.8rem;">
                 </div>
-
             </div>
         </div>
         <div class="cartoes m-3">
@@ -184,11 +244,21 @@
                                         </div>
                                         <div class="card-body">
                                             <div class="info">
-                                                <p><strong>Carrinho:</strong> Azul</p>
-                                                <p><strong id="strNroVoltasCompetidor1">0/3</strong> Voltas</p>
-                                                <p><strong>Volta mais rápida:&nbsp;</strong><span id="spnMelhorVolta1">00:00</span></p>
-                                                <div class="NVolta" style="text-align: end;">
-                                                    <p><strong>Nº Volta: </strong>1</p>
+                                                <div class="row">
+                                                    <div class="col-md-12 padding-0">
+                                                        <div class="col-md-8 float-left">
+                                                            <p><strong>Carrinho:</strong> Azul</p>
+                                                            <p><strong>Voltas:&nbsp;</strong><span id="spnNroVoltasCompetidor1">0/3</span></p>
+                                                        </div>
+                                                        <div class="col-md-4 float-left">
+                                                            <img id="imgTrofeu1" src="img/trofeu.png" class="img-fluid" style="height: 4.8rem;">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="row">
+                                                    <div class="col-md-12">
+                                                        <p><strong>Volta mais rápida:&nbsp;</strong><span id="spnMelhorVolta1">00:00</span></p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -201,11 +271,21 @@
                                         </div>
                                         <div class="card-body">
                                             <div class="info">
-                                                <p><strong>Carrinho:</strong> Verde</p>
-                                                <p><strong id="strNroVoltasCompetidor2">0/3</strong> Voltas</p>
-                                                <p><strong>Volta mais rápida:&nbsp;</strong><span id="spnMelhorVolta2">00:00</span></p>
-                                                <div class="NVolta" style="text-align: end;">
-                                                    <p><strong>Nº Volta: </strong>1</p>
+                                                <div class="row">
+                                                    <div class="col-md-12 padding-0">
+                                                        <div class="col-md-8 float-left">
+                                                            <p><strong>Carrinho:</strong> Amarelo</p>
+                                                            <p><strong>Voltas:&nbsp;</strong><span id="spnNroVoltasCompetidor2">0/3</span></p>
+                                                        </div>
+                                                        <div class="col-md-4 float-left">
+                                                            <img id="imgTrofeu2" src="img/trofeu.png" class="img-fluid" style="height: 4.8rem;">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="row">
+                                                    <div class="col-md-12">
+                                                        <p><strong>Volta mais rápida:&nbsp;</strong><span id="spnMelhorVolta2">00:00</span></p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -223,10 +303,7 @@
                                     right: 0rem;">
                             </div>
                             <div class="materDei">
-                                <img src="img/escudo-faculdade-trans-copy-1.png" class="img-fluid" style="height: 11.8rem;
-                                position: absolute;
-                                bottom: 4rem;
-                                left: 1.5rem;">
+                                <img src="img/escudo-faculdade-trans-copy-1.png" class="img-fluid" onclick="iniciarNovaPartida()" style="height: 11.8rem;position: absolute;bottom: 4rem;left: 1.5rem;">
                             </div>
                         </div>
                     </div>
@@ -244,23 +321,23 @@
             <div class="container-fluid">
                 <div class="row">
                     <div class="col">
-                        <div class="melhorVolta mt-2" style="text-align: center; font-size: 1.5rem;
+                        <div class="mt-2" style="text-align: center; font-size: 1.5rem;
                         font-weight: bold;">
-                            <p>Melhores Voltas</p>
+                            <p>MELHORES VOLTAS DO DIA</p>
                         </div>
                         <div class="card mt-2">
                             <div class="card-header">
-                                <strong>Daniel Sandrin - Tempo da volta: 00:13</strong>
+                                <strong><span id="spnTop1"></span></strong>
                             </div>
                         </div>
                         <div class="card mt-2">
                             <div class="card-header">
-                                <strong>Daniel Sandrin - Tempo da volta: 00:13</strong>
+                                <strong><span id="spnTop2"></span></strong>
                             </div>
                         </div>
                         <div class="card mt-2">
                             <div class="card-header">
-                                <strong>Daniel Sandrin - Tempo da volta: 00:13</strong>
+                                <strong><span id="spnTop3"></span></strong>
                             </div>
                         </div>
                     </div>
@@ -268,21 +345,21 @@
                         <div class="trofeu mt-2" style="text-align: center;">
                             <div class="MelhorInventum" style=" font-size: 1.5rem;
                             font-weight: bold;">
-                                <p>Top 3 Melhores da inventum</p>
+                                <p>MELHORES VOLTAS DA INVENTUM</p>
                             </div>
                             <div class="card mt-2">
                                 <div class="card-header">
-                                    <strong>Daniel Sandrin - Tempo da volta: 00:13</strong>
+                                    <strong><span id="spnTop1Inventum"></span></strong>
                                 </div>
                             </div>
                             <div class="card mt-2">
                                 <div class="card-header">
-                                    <strong>Daniel Sandrin - Tempo da volta: 00:13</strong>
+                                    <strong><span id="spnTop2Inventum"></span></strong>
                                 </div>
                             </div>
                             <div class="card mt-2">
                                 <div class="card-header">
-                                    <strong>Daniel Sandrin - Tempo da volta: 00:13</strong>
+                                    <strong><span id="spnTop3Inventum"></span></strong>
                                 </div>
                             </div>
                         </div>
